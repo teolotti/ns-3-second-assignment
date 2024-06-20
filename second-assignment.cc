@@ -10,184 +10,291 @@
 #include "ns3/applications-module.h"
 #include "ns3/point-to-point-module.h"
 #include "ns3/csma-module.h"
+#include "ns3/multi-model-spectrum-channel.h"
+
+#include <iomanip>
 
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("WirelessInterferenceSimulation");
 
-/*void ConfigureChannel(YansWifiChannelHelper &channel, bool useSpectrum)
-{
-    if (useSpectrum)
-    {
-        SpectrumWifiChannelHelper spectrumChannel;
-        Ptr<MultiModelSpectrumChannel> spectrum = spectrumChannel.Create ();
-        channel.SetChannel (spectrum);
-    }
-    else
-    {
-        channel.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
-        channel.AddPropagationLoss ("ns3::FriisPropagationLossModel");
-    }
-}*/
-
 int main (int argc, char *argv[])
 {   
+    // Config parameters
+    std::string wifiType{"ns3::YansWifiPhy"};
+    uint16_t APnum{2};
+    std::string errorModelType{"ns3::NistErrorRateModel"};
+
+    // Command line arguments
+    CommandLine cmd;
+    cmd.AddValue("wifiType", "Type of wifi phy to use", wifiType);
+    cmd.AddValue("APnum", "Number of APs", APnum);
+    cmd.Parse(argc, argv);
+
+    // Check if the wifi type is valid
+    if (wifiType != "ns3::SpectrumWifiPhy" && wifiType != "ns3::YansWifiPhy")
+    {
+        std::cout << "Invalid wifi type" << std::endl;
+        return 1;
+    }
+
+    // Check if the number of APs is valid
+    if (APnum < 1 || APnum > 2)
+    {
+        std::cout << "Invalid number of APs" << std::endl;
+        return 1;
+    }    
+
     Time::SetResolution (Time::NS);
 
-    LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
-    LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
+    //LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
+    //LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
 
-    // Creazione dei nodi
+    // Nodes creation
     NodeContainer wifiApNodes;
-    wifiApNodes.Create (2);
+    wifiApNodes.Create (APnum);
     NodeContainer wifiStaNodes;
     wifiStaNodes.Create (2);
 
-    // Configurazione del canale
-    YansWifiChannelHelper channel;
-    //ConfigureChannel(channel, useSpectrum);
-    channel.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
-    channel.AddPropagationLoss ("ns3::FriisPropagationLossModel");
+    //CSMA nodes
+    NodeContainer csmaNodes;
+    csmaNodes.Add(wifiApNodes);
 
-    
-    YansWifiPhyHelper phy;
-    phy.SetChannel (channel.Create ());
+    CsmaHelper csma;
+    csma.SetChannelAttribute("DataRate", StringValue("100Mbps"));
+    csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
 
-    // Configurazione dello standard WiFi
+    // Channel configuration
+    YansWifiPhyHelper phy, phy2;
+    SpectrumWifiPhyHelper spectrumPhy, spectrumPhy2;
+
+    if (wifiType == "ns3::YansWifiPhy")
+    {   YansWifiChannelHelper channel;
+        channel.AddPropagationLoss("ns3::FriisPropagationLossModel",
+                                   "Frequency",
+                                   DoubleValue(5.180*1e6));
+        channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
+        phy.SetChannel(channel.Create());
+        phy.Set("ChannelSettings",
+                    StringValue(std::string("{36, 0, BAND_5GHZ, 0}")));
+        phy.Set("TxPowerStart", DoubleValue(1)); // dBm (1.26 mW)
+        phy.Set("TxPowerEnd", DoubleValue(1));
+        if(APnum == 2){
+            phy2.SetChannel(channel.Create());
+            phy2.Set("ChannelSettings",
+                    StringValue(std::string("{38, 0, BAND_5GHZ, 0}")));
+            phy2.Set("TxPowerStart", DoubleValue(1)); // dBm (1.26 mW)
+            phy2.Set("TxPowerEnd", DoubleValue(1));
+        }
+    }
+    else if (wifiType == "ns3::SpectrumWifiPhy")
+    {   Ptr<MultiModelSpectrumChannel> spectrumChannel = CreateObject<MultiModelSpectrumChannel>();
+        Ptr<FriisPropagationLossModel> lossModel = CreateObject<FriisPropagationLossModel>();
+        lossModel->SetFrequency(5.180*1e6);
+        spectrumChannel->AddPropagationLossModel(lossModel);
+
+        Ptr<ConstantSpeedPropagationDelayModel> delayModel = CreateObject<ConstantSpeedPropagationDelayModel>();
+        spectrumChannel->SetPropagationDelayModel(delayModel);
+        spectrumPhy.SetChannel(spectrumChannel);
+        spectrumPhy.Set("ChannelSettings",
+                    StringValue(std::string("{36, 0, BAND_5GHZ, 0}")));
+        spectrumPhy.SetErrorRateModel(errorModelType);
+        spectrumPhy.Set("TxPowerStart", DoubleValue(1)); // dBm  (1.26 mW)
+        spectrumPhy.Set("TxPowerEnd", DoubleValue(1));
+
+        if(APnum == 2){
+            spectrumPhy2.SetChannel(spectrumChannel);
+            spectrumPhy2.Set("ChannelSettings",
+                    StringValue(std::string("{38, 0, BAND_5GHZ, 0}")));
+            spectrumPhy2.SetErrorRateModel(errorModelType);
+            spectrumPhy2.Set("TxPowerStart", DoubleValue(1)); // dBm  (1.26 mW)
+            spectrumPhy2.Set("TxPowerEnd", DoubleValue(1));
+        }
+    }
+
+    // Standard WiFi 802.11n
     WifiHelper wifi;
-    wifi.SetStandard (WIFI_STANDARD_80211b);
+    wifi.SetStandard (WIFI_STANDARD_80211n);
 
-    // Configurazione della rete MAC
+    // Mac Configuration
     WifiMacHelper mac;
     Ssid ssid1 = Ssid ("ns-3-ssid-1");
     Ssid ssid2 = Ssid ("ns-3-ssid-2");
 
-    // Configurazione AP 1
-    mac.SetType ("ns3::ApWifiMac",
-                 "Ssid", SsidValue (ssid1));
-    NetDeviceContainer ap1Devices = wifi.Install (phy, mac, wifiApNodes.Get (0));
+    // Wifi installation
+    NetDeviceContainer ap1Devices;
+    NetDeviceContainer ap2Devices;
+    NetDeviceContainer sta1Devices;
+    NetDeviceContainer sta2Devices;
 
-    // Configurazione AP 2
-    mac.SetType ("ns3::ApWifiMac",
-                 "Ssid", SsidValue (ssid2));
-    NetDeviceContainer ap2Devices = wifi.Install (phy, mac, wifiApNodes.Get (1));
+    if (wifiType == "ns3::YansWifiPhy"){
+        mac.SetType("ns3::ApWifiMac",
+                     "Ssid", SsidValue(ssid1));
+        ap1Devices = wifi.Install(phy, mac, wifiApNodes.Get(0));
+        mac.SetType("ns3::StaWifiMac",
+                     "Ssid", SsidValue(ssid1));
+        sta1Devices = wifi.Install(phy, mac, wifiStaNodes.Get(0));
+        if(APnum == 2){
+            mac.SetType("ns3::ApWifiMac",
+                        "Ssid", SsidValue(ssid2));
+            ap2Devices = wifi.Install(phy2, mac, wifiApNodes.Get(1));
+            mac.SetType("ns3::StaWifiMac",
+                        "Ssid", SsidValue(ssid2));
+            sta2Devices = wifi.Install(phy2, mac, wifiStaNodes.Get(1));
+        } else {
+            sta2Devices = wifi.Install(phy, mac, wifiStaNodes.Get(1));
+        }
+    } else if (wifiType == "ns3::SpectrumWifiPhy"){
+        mac.SetType("ns3::ApWifiMac",
+                     "Ssid", SsidValue(ssid1));
+        ap1Devices = wifi.Install(spectrumPhy, mac, wifiApNodes.Get(0));
+        mac.SetType("ns3::StaWifiMac",
+                     "Ssid", SsidValue(ssid1));
+        sta1Devices = wifi.Install(spectrumPhy, mac, wifiStaNodes.Get(0));
+        if(APnum == 2){
+            mac.SetType("ns3::ApWifiMac",
+                        "Ssid", SsidValue(ssid2));
+            ap2Devices = wifi.Install(spectrumPhy2, mac, wifiApNodes.Get(1));
+            mac.SetType("ns3::StaWifiMac",
+                        "Ssid", SsidValue(ssid2));
+            sta2Devices = wifi.Install(spectrumPhy2, mac, wifiStaNodes.Get(1));
+        } else {
+            sta2Devices = wifi.Install(spectrumPhy, mac, wifiStaNodes.Get(1));
+        }
+    }
 
-    // Configurazione STA 1
-    mac.SetType ("ns3::StaWifiMac",
-                 "Ssid", SsidValue (ssid1), "ActiveProbing", BooleanValue(false));
-    NetDeviceContainer sta1Devices = wifi.Install (phy, mac, wifiStaNodes.Get (0));
+    /*Ptr<WifiNetDevice> ap1NetDevice = DynamicCast<WifiNetDevice>(ap1Devices.Get(0));
+    Ptr<WifiPhy> ap1Phy = DynamicCast<WifiPhy>(ap1NetDevice->GetPhy());
+    ap1Phy->SetOperatingChannel(WifiPhy::ChannelTuple{1, 22, WIFI_PHY_BAND_2_4GHZ, 0});
 
-    // Configurazione STA 2
-    mac.SetType ("ns3::StaWifiMac",
-                 "Ssid", SsidValue (ssid2), "ActiveProbing", BooleanValue(false));
-    NetDeviceContainer sta2Devices = wifi.Install (phy, mac, wifiStaNodes.Get (1));
+    if(APnum == 2){
+        Ptr<WifiNetDevice> ap2NetDevice = DynamicCast<WifiNetDevice>(ap2Devices.Get(0));
+        Ptr<WifiPhy> ap2Phy = DynamicCast<WifiPhy>(ap2NetDevice->GetPhy());
+        ap2Phy->SetOperatingChannel(WifiPhy::ChannelTuple{2, 22, WIFI_PHY_BAND_2_4GHZ, 0});
+    }*/
 
-    // Posizionamento dei nodi in modo che i due AP creino interferenza tra loro, mentre i due STA siano collegati a ciascun AP
+    // Node mobility and position configuration
     MobilityHelper mobility;
+    Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator>();
 
-    mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-                                  "MinX",
-                                  DoubleValue(0.0),
-                                  "MinY",
-                                  DoubleValue(0.0),
-                                  "DeltaX",
-                                  DoubleValue(5.0),
-                                  "DeltaY",
-                                  DoubleValue(10.0),
-                                  "GridWidth",
-                                  UintegerValue(3),
-                                  "LayoutType",
-                                  StringValue("RowFirst"));
+    positionAlloc->Add(Vector(0.0, 0.0, 0.0));
+    positionAlloc->Add(Vector(5.0, 0.0, 0.0));
+    positionAlloc->Add(Vector(0.0, 5.0, 0.0));
+    positionAlloc->Add(Vector(5.0, 5.0, 0.0));
 
-    mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
-                              "Bounds",
-                              RectangleValue(Rectangle(-50, 50, -50, 50)));
-    mobility.Install(wifiStaNodes);
+    mobility.SetPositionAllocator(positionAlloc);
 
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+
     mobility.Install(wifiApNodes);
-    
-    // Creazione della connessione CSMA tra i due AP
-    NodeContainer csmaNodes;
-    csmaNodes.Add (wifiApNodes);
+    mobility.Install(wifiStaNodes);
 
-    CsmaHelper csma;
-    csma.SetChannelAttribute ("DataRate", StringValue ("100Mbps"));
-    csma.SetChannelAttribute ("Delay", TimeValue (NanoSeconds (6560)));
-    NetDeviceContainer csmaDevices = csma.Install (csmaNodes);
-
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
-
-    // Installazione dello stack Internet
+    // Internet stack configuration
     InternetStackHelper stack;
-    stack.Install (wifiApNodes);
-    stack.Install (wifiStaNodes);
+    stack.Install(wifiApNodes);
+    stack.Install(wifiStaNodes);
 
-    // Assegnazione degli indirizzi IP
+    // IP address configuration
     Ipv4AddressHelper address;
 
-    // Assegnazione indirizzi per WiFi
+    // Wifi IP address
     address.SetBase ("192.168.1.0", "255.255.255.0");
     Ipv4InterfaceContainer ap1Interfaces = address.Assign (ap1Devices);
     Ipv4InterfaceContainer sta1Interfaces = address.Assign (sta1Devices);
 
-    address.SetBase ("192.168.2.0", "255.255.255.0");
-    Ipv4InterfaceContainer ap2Interfaces = address.Assign (ap2Devices);
-    Ipv4InterfaceContainer sta2Interfaces = address.Assign (sta2Devices);
+    Ipv4InterfaceContainer ap2Interfaces;
+    Ipv4InterfaceContainer sta2Interfaces;
+    if (APnum == 2){
+        address.SetBase ("192.168.2.0", "255.255.255.0");
+        ap2Interfaces = address.Assign (ap2Devices);
+        sta2Interfaces = address.Assign (sta2Devices);
+    } else {
+        sta2Interfaces = address.Assign (sta2Devices);
+    }
 
-    // Assegnazione indirizzi per CSMA
+    // CSMA IP address
     address.SetBase ("10.1.1.0", "255.255.255.0");
-    Ipv4InterfaceContainer csmaInterfaces = address.Assign (csmaDevices);
+    Ipv4InterfaceContainer csmaInterfaces = address.Assign (csma.Install (csmaNodes));
 
-    // Installazione dell'applicazione di traffico sul primo AP e STA
+    Ptr<Ipv4> ipv4A1 = wifiApNodes.Get(0)->GetObject<Ipv4>();
+    Ptr<Ipv4> ipv4S1 = wifiStaNodes.Get(0)->GetObject<Ipv4>();
+    Ptr<Ipv4> ipv4S2 = wifiStaNodes.Get(1)->GetObject<Ipv4>();
+    Ptr<Ipv4> ipv4A2;
+    if(APnum == 2){
+        ipv4A2= wifiApNodes.Get(1)->GetObject<Ipv4>();
+    }
+
+
+    // Application configuration (UDP)
     uint16_t port = 9;
+    UdpEchoServerHelper server(port);
+    ApplicationContainer serverApp = server.Install(wifiApNodes.Get(0));
+    serverApp.Start(Seconds(0.0));
+    serverApp.Stop(Seconds(30.0));
 
-    UdpEchoServerHelper server1 (port);
-    ApplicationContainer serverApp1 = server1.Install (wifiApNodes.Get (0));
-    serverApp1.Start (Seconds (1.0));
-    serverApp1.Stop (Seconds (10.0));
+    UdpEchoClientHelper client1 (ap1Interfaces.GetAddress(0), port);
+    client1.SetAttribute("MaxPackets", UintegerValue(10000));
+    client1.SetAttribute("Interval", TimeValue(Seconds(0.0001)));
+    client1.SetAttribute("PacketSize", UintegerValue(1024));
+    ApplicationContainer clientApp1 = client1.Install(wifiStaNodes.Get(0));
+    clientApp1.Start(Seconds(0.0));
+    clientApp1.Stop(Seconds(30.0));
 
-    UdpEchoClientHelper client1 (ap1Interfaces.GetAddress (0), port);
-    client1.SetAttribute ("MaxPackets", UintegerValue (320));
-    client1.SetAttribute ("Interval", TimeValue (Seconds (0.05)));
-    client1.SetAttribute ("PacketSize", UintegerValue (1024));
+    if (APnum == 2){
+        UdpEchoServerHelper server2(port);
+        ApplicationContainer serverApp2 = server2.Install(wifiApNodes.Get(1));
+        serverApp2.Start(Seconds(0.0));
+        serverApp2.Stop(Seconds(30.0));
 
-    ApplicationContainer clientApp1 = client1.Install (wifiStaNodes.Get (0));
-    clientApp1.Start (Seconds (2.0));
-    clientApp1.Stop (Seconds (10.0));
-
-    // Installazione dell'applicazione di traffico sul secondo AP e STA
-    UdpEchoServerHelper server2 (port);
-    ApplicationContainer serverApp2 = server2.Install (wifiApNodes.Get (1));
-    serverApp2.Start (Seconds (1.0));
-    serverApp2.Stop (Seconds (10.0));
-
-    UdpEchoClientHelper client2 (ap2Interfaces.GetAddress (0), port);
-    client2.SetAttribute ("MaxPackets", UintegerValue (320));
-    client2.SetAttribute ("Interval", TimeValue (Seconds (0.05)));
-    client2.SetAttribute ("PacketSize", UintegerValue (1024));
-
-    ApplicationContainer clientApp2 = client2.Install (wifiStaNodes.Get (1));
-    clientApp2.Start (Seconds (2.0));
-    clientApp2.Stop (Seconds (10.0));
-
-    // Configurazione del monitoraggio del flusso
-    FlowMonitorHelper flowmon;
-    Ptr<FlowMonitor> monitor = flowmon.InstallAll ();
-
-    Simulator::Stop (Seconds (10.0));
-
-    // Misurazione del tempo di esecuzione, preferibile tramite flowmonitor
-    /*
-    clock_t start, end;
-    start = clock();
+        UdpEchoClientHelper client2 (ap2Interfaces.GetAddress(0), port);
+        client2.SetAttribute("MaxPackets", UintegerValue(10000));
+        client2.SetAttribute("Interval", TimeValue(Seconds(0.0001)));
+        client2.SetAttribute("PacketSize", UintegerValue(1024));
+        ApplicationContainer clientApp2 = client2.Install(wifiStaNodes.Get(1));
+        clientApp2.Start(Seconds(0.0));
+        clientApp2.Stop(Seconds(30.0));
+    } else {
+        UdpEchoClientHelper client2 (ap1Interfaces.GetAddress(0), port);
+        client2.SetAttribute("MaxPackets", UintegerValue(10000));
+        client2.SetAttribute("Interval", TimeValue(Seconds(0.0001)));
+        client2.SetAttribute("PacketSize", UintegerValue(1024));
+        ApplicationContainer clientApp2 = client2.Install(wifiStaNodes.Get(1));
+        clientApp2.Start(Seconds(0.0));
+        clientApp2.Stop(Seconds(30.0));
+    }
     
-    end = clock();
-    double time_taken = double(end - start) / double(CLOCKS_PER_SEC);
-    std::cout << "Simulation time: " << time_taken << " seconds" << std::endl;
-    */
+
+    
+    // Flow monitor
+    Ptr<FlowMonitor> monitor;
+    FlowMonitorHelper flowmon;
+    monitor = flowmon.InstallAll();
+
+    // Simulation start
+    Simulator::Stop(Seconds(30.0));
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+
     Simulator::Run ();
-    monitor->SerializeToXmlFile("scratch/sec.xml", true, true);
+
+
+    monitor->CheckForLostPackets ();
+
+    if(wifiType == "ns3::SpectrumWifiPhy")
+        if(APnum == 2)
+            monitor->SerializeToXmlFile("scratch/ns-3-second-assignment/second-assignment-spectrum-2ap.xml", true, true);
+        else
+            monitor->SerializeToXmlFile("scratch/ns-3-second-assignment/second-assignment-spectrum-1ap.xml", true, true);
+    else
+        if(APnum == 2)
+            monitor->SerializeToXmlFile("scratch/ns-3-second-assignment/second-assignment-yans-2ap.xml", true, true);
+        else
+            monitor->SerializeToXmlFile("scratch/ns-3-second-assignment/second-assignment-yans-1ap.xml", true, true);
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    std::cout << "Simulation time: " << elapsed.count() << "s" << std::endl;
 
     Simulator::Destroy();
     return 0;
