@@ -56,14 +56,6 @@ int main (int argc, char *argv[])
     NodeContainer wifiStaNodes;
     wifiStaNodes.Create (2);
 
-    //CSMA nodes
-    NodeContainer csmaNodes;
-    csmaNodes.Add(wifiApNodes);
-
-    CsmaHelper csma;
-    csma.SetChannelAttribute("DataRate", StringValue("100Mbps"));
-    csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
-
     // Channel configuration
     YansWifiPhyHelper phy, phy2;
     SpectrumWifiPhyHelper spectrumPhy, spectrumPhy2;
@@ -163,16 +155,6 @@ int main (int argc, char *argv[])
         }
     }
 
-    /*Ptr<WifiNetDevice> ap1NetDevice = DynamicCast<WifiNetDevice>(ap1Devices.Get(0));
-    Ptr<WifiPhy> ap1Phy = DynamicCast<WifiPhy>(ap1NetDevice->GetPhy());
-    ap1Phy->SetOperatingChannel(WifiPhy::ChannelTuple{1, 22, WIFI_PHY_BAND_2_4GHZ, 0});
-
-    if(APnum == 2){
-        Ptr<WifiNetDevice> ap2NetDevice = DynamicCast<WifiNetDevice>(ap2Devices.Get(0));
-        Ptr<WifiPhy> ap2Phy = DynamicCast<WifiPhy>(ap2NetDevice->GetPhy());
-        ap2Phy->SetOperatingChannel(WifiPhy::ChannelTuple{2, 22, WIFI_PHY_BAND_2_4GHZ, 0});
-    }*/
-
     // Node mobility and position configuration
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator>();
@@ -198,32 +180,19 @@ int main (int argc, char *argv[])
     Ipv4AddressHelper address;
 
     // Wifi IP address
-    address.SetBase ("192.168.1.0", "255.255.255.0");
-    Ipv4InterfaceContainer ap1Interfaces = address.Assign (ap1Devices);
-    Ipv4InterfaceContainer sta1Interfaces = address.Assign (sta1Devices);
+    address.SetBase("192.168.1.0", "255.255.255.0");
+    Ipv4InterfaceContainer ap1Interfaces = address.Assign(ap1Devices);
+    Ipv4InterfaceContainer sta1Interfaces = address.Assign(sta1Devices);
 
     Ipv4InterfaceContainer ap2Interfaces;
     Ipv4InterfaceContainer sta2Interfaces;
     if (APnum == 2){
-        address.SetBase ("192.168.2.0", "255.255.255.0");
-        ap2Interfaces = address.Assign (ap2Devices);
-        sta2Interfaces = address.Assign (sta2Devices);
+        address.SetBase("192.168.2.0", "255.255.255.0");
+        ap2Interfaces = address.Assign(ap2Devices);
+        sta2Interfaces = address.Assign(sta2Devices);
     } else {
-        sta2Interfaces = address.Assign (sta2Devices);
+        sta2Interfaces = address.Assign(sta2Devices);
     }
-
-    // CSMA IP address
-    address.SetBase ("10.1.1.0", "255.255.255.0");
-    Ipv4InterfaceContainer csmaInterfaces = address.Assign (csma.Install (csmaNodes));
-
-    Ptr<Ipv4> ipv4A1 = wifiApNodes.Get(0)->GetObject<Ipv4>();
-    Ptr<Ipv4> ipv4S1 = wifiStaNodes.Get(0)->GetObject<Ipv4>();
-    Ptr<Ipv4> ipv4S2 = wifiStaNodes.Get(1)->GetObject<Ipv4>();
-    Ptr<Ipv4> ipv4A2;
-    if(APnum == 2){
-        ipv4A2= wifiApNodes.Get(1)->GetObject<Ipv4>();
-    }
-
 
     // Application configuration (UDP)
     uint16_t port = 9;
@@ -262,8 +231,6 @@ int main (int argc, char *argv[])
         clientApp2.Start(Seconds(0.0));
         clientApp2.Stop(Seconds(30.0));
     }
-    
-
     
     // Flow monitor
     Ptr<FlowMonitor> monitor;

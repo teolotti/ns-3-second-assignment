@@ -639,7 +639,7 @@
         <bin index="178" start="0.178" width="0.001" count="29" />
         <bin index="179" start="0.179" width="0.001" count="46" />
         <bin index="180" start="0.18" width="0.001" count="57" />
-        <bin index="181" start="0.181" width="0.001" count="61" />
+        <bin index="181" start="0.181" width="0.001" count="61" />sta1Interfaces.GetAddress(0)
         <bin index="182" start="0.182" width="0.001" count="58" />
         <bin index="183" start="0.183" width="0.001" count="35" />
         <bin index="184" start="0.184" width="0.001" count="29" />

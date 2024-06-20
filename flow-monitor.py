@@ -60,10 +60,10 @@ if __name__ == "__main__":
     filename = "/home/matteo/ns-3-dev/scratch/ns-3-second-assignment/second-assignment-yans-1ap.xml"
     df = parse_flow_monitor_to_table(filename)
     print(df)
-    df.to_latex('/home/matteo/ns-3-dev/scratch/ns-3-second-assignment/yans-1ap', index=False)
+    df.to_latex('/home/matteo/ns-3-dev/scratch/ns-3-second-assignment/yans-1ap.tex', index=False)
 
     filename = "/home/matteo/ns-3-dev/scratch/ns-3-second-assignment/second-assignment-yans-2ap.xml"
     df = parse_flow_monitor_to_table(filename)
     print(df)
-    df.to_latex('/home/matteo/ns-3-dev/scratch/ns-3-second-assignment/yans-2ap', index=False)
+    df.to_latex('/home/matteo/ns-3-dev/scratch/ns-3-second-assignment/yans-2ap.tex', index=False)
 
