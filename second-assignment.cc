@@ -16,9 +16,9 @@
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("WirelessInterferenceSimulation");
+NS_LOG_COMPONENT_DEFINE("WirelessInterferenceSimulation");
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {   
     // Config parameters
     std::string wifiType{"ns3::YansWifiPhy"};
@@ -45,16 +45,16 @@ int main (int argc, char *argv[])
         return 1;
     }    
 
-    Time::SetResolution (Time::NS);
+    Time::SetResolution(Time::NS);
 
     //LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
     //LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
 
     // Nodes creation
     NodeContainer wifiApNodes;
-    wifiApNodes.Create (APnum);
+    wifiApNodes.Create(APnum);
     NodeContainer wifiStaNodes;
-    wifiStaNodes.Create (2);
+    wifiStaNodes.Create(2);
 
     // Channel configuration
     YansWifiPhyHelper phy, phy2;
@@ -62,19 +62,15 @@ int main (int argc, char *argv[])
 
     if (wifiType == "ns3::YansWifiPhy")
     {   YansWifiChannelHelper channel;
-        channel.AddPropagationLoss("ns3::FriisPropagationLossModel",
-                                   "Frequency",
-                                   DoubleValue(5.180*1e6));
+        channel.AddPropagationLoss("ns3::FriisPropagationLossModel", "Frequency", DoubleValue(5.180*1e6));
         channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
         phy.SetChannel(channel.Create());
-        phy.Set("ChannelSettings",
-                    StringValue(std::string("{36, 0, BAND_5GHZ, 0}")));
+        phy.Set("ChannelSettings", StringValue(std::string("{36, 0, BAND_5GHZ, 0}")));
         phy.Set("TxPowerStart", DoubleValue(1)); // dBm (1.26 mW)
         phy.Set("TxPowerEnd", DoubleValue(1));
         if(APnum == 2){
             phy2.SetChannel(channel.Create());
-            phy2.Set("ChannelSettings",
-                    StringValue(std::string("{38, 0, BAND_5GHZ, 0}")));
+            phy2.Set("ChannelSettings", StringValue(std::string("{38, 0, BAND_5GHZ, 0}")));
             phy2.Set("TxPowerStart", DoubleValue(1)); // dBm (1.26 mW)
             phy2.Set("TxPowerEnd", DoubleValue(1));
         }
@@ -88,16 +84,14 @@ int main (int argc, char *argv[])
         Ptr<ConstantSpeedPropagationDelayModel> delayModel = CreateObject<ConstantSpeedPropagationDelayModel>();
         spectrumChannel->SetPropagationDelayModel(delayModel);
         spectrumPhy.SetChannel(spectrumChannel);
-        spectrumPhy.Set("ChannelSettings",
-                    StringValue(std::string("{36, 0, BAND_5GHZ, 0}")));
+        spectrumPhy.Set("ChannelSettings", StringValue(std::string("{36, 0, BAND_5GHZ, 0}")));
         spectrumPhy.SetErrorRateModel(errorModelType);
         spectrumPhy.Set("TxPowerStart", DoubleValue(1)); // dBm  (1.26 mW)
         spectrumPhy.Set("TxPowerEnd", DoubleValue(1));
 
         if(APnum == 2){
             spectrumPhy2.SetChannel(spectrumChannel);
-            spectrumPhy2.Set("ChannelSettings",
-                    StringValue(std::string("{38, 0, BAND_5GHZ, 0}")));
+            spectrumPhy2.Set("ChannelSettings", StringValue(std::string("{38, 0, BAND_5GHZ, 0}")));
             spectrumPhy2.SetErrorRateModel(errorModelType);
             spectrumPhy2.Set("TxPowerStart", DoubleValue(1)); // dBm  (1.26 mW)
             spectrumPhy2.Set("TxPowerEnd", DoubleValue(1));
@@ -106,12 +100,12 @@ int main (int argc, char *argv[])
 
     // Standard WiFi 802.11n
     WifiHelper wifi;
-    wifi.SetStandard (WIFI_STANDARD_80211n);
+    wifi.SetStandard(WIFI_STANDARD_80211n);
 
     // Mac Configuration
     WifiMacHelper mac;
-    Ssid ssid1 = Ssid ("ns-3-ssid-1");
-    Ssid ssid2 = Ssid ("ns-3-ssid-2");
+    Ssid ssid1 = Ssid("ns-3-ssid-1");
+    Ssid ssid2 = Ssid("ns-3-ssid-2");
 
     // Wifi installation
     NetDeviceContainer ap1Devices;
@@ -120,35 +114,27 @@ int main (int argc, char *argv[])
     NetDeviceContainer sta2Devices;
 
     if (wifiType == "ns3::YansWifiPhy"){
-        mac.SetType("ns3::ApWifiMac",
-                     "Ssid", SsidValue(ssid1));
+        mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid1));
         ap1Devices = wifi.Install(phy, mac, wifiApNodes.Get(0));
-        mac.SetType("ns3::StaWifiMac",
-                     "Ssid", SsidValue(ssid1));
+        mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid1));
         sta1Devices = wifi.Install(phy, mac, wifiStaNodes.Get(0));
         if(APnum == 2){
-            mac.SetType("ns3::ApWifiMac",
-                        "Ssid", SsidValue(ssid2));
+            mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid2));
             ap2Devices = wifi.Install(phy2, mac, wifiApNodes.Get(1));
-            mac.SetType("ns3::StaWifiMac",
-                        "Ssid", SsidValue(ssid2));
+            mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid2));
             sta2Devices = wifi.Install(phy2, mac, wifiStaNodes.Get(1));
         } else {
             sta2Devices = wifi.Install(phy, mac, wifiStaNodes.Get(1));
         }
     } else if (wifiType == "ns3::SpectrumWifiPhy"){
-        mac.SetType("ns3::ApWifiMac",
-                     "Ssid", SsidValue(ssid1));
+        mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid1));
         ap1Devices = wifi.Install(spectrumPhy, mac, wifiApNodes.Get(0));
-        mac.SetType("ns3::StaWifiMac",
-                     "Ssid", SsidValue(ssid1));
+        mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid1));
         sta1Devices = wifi.Install(spectrumPhy, mac, wifiStaNodes.Get(0));
         if(APnum == 2){
-            mac.SetType("ns3::ApWifiMac",
-                        "Ssid", SsidValue(ssid2));
+            mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid2));
             ap2Devices = wifi.Install(spectrumPhy2, mac, wifiApNodes.Get(1));
-            mac.SetType("ns3::StaWifiMac",
-                        "Ssid", SsidValue(ssid2));
+            mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid2));
             sta2Devices = wifi.Install(spectrumPhy2, mac, wifiStaNodes.Get(1));
         } else {
             sta2Devices = wifi.Install(spectrumPhy, mac, wifiStaNodes.Get(1));
@@ -242,9 +228,7 @@ int main (int argc, char *argv[])
 
     auto start = std::chrono::high_resolution_clock::now();
 
-
     Simulator::Run ();
-
 
     monitor->CheckForLostPackets ();
 
@@ -260,6 +244,7 @@ int main (int argc, char *argv[])
             monitor->SerializeToXmlFile("scratch/ns-3-second-assignment/second-assignment-yans-1ap.xml", true, true);
 
     auto end = std::chrono::high_resolution_clock::now();
+    
     std::chrono::duration<double> elapsed = end - start;
     std::cout << "Simulation time: " << elapsed.count() << "s" << std::endl;
 
